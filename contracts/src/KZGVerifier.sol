@@ -31,17 +31,13 @@ contract Verifier is Constants {
     /*
      * Verifies a single-point evaluation of a polynominal using the KZG
      * commitment scheme.
-     *    - p(X) is a polynominal
-     *    - _value = p(_index)
-     *    - commitment = commit(p)
-     *    - proof = genProof(p, _index, _value)
      * Returns true if and only if the following holds, and returns false
      * otherwise:
      *     e(commitment - commit([_value]), G2.g) == e(proof, commit([0, 1]) - zCommit)
-     * @param _commitment The KZG polynominal commitment.
+     * @param _commitment The KZG polynomial commitment.
      * @param _proof The proof.
-     * @param _index The x-value at which to evaluate the polynominal.
-     * @param _value The result of the polynominal evaluation.
+     * @param _index The x-value at which to evaluate the polynomial.
+     * @param _value The result of the polynomial evaluation.
      */
     function verify(
         Pairing.G1Point memory _commitment,
