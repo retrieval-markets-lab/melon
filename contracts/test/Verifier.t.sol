@@ -51,16 +51,18 @@ contract KZGVerifierTest is Test {
         }
     }
 
-    // TODO: fuzzing is currently breaking some edge cases ! figure out what is going on
     function testverify_withFuzzing(
-        Pairing.G1Point calldata commitment,
-        // TODO: implement genProof in solidity or use FFI cheatcode to generate a proof
         Pairing.G1Point calldata proof,
         uint256 index,
         uint256[] calldata arr
     ) public view {
+        vm.assume(index < BABYJUB_P && arr.length > 0);
         uint256 value = verifier.evalPolyAt(arr, index);
         vm.assume(value < BABYJUB_P);
+        vm.assume(arr.length > 0 && arr.length < 129);
+        Pairing.G1Point memory commitment = verifier.commit(arr);
+        // TODO: implement genProof in solidity or use FFI cheatcode to generate a proof
+        Pairing.G1Point memory proof = Pairing.G1Point(1, 2);
 
         verifier.verify(commitment, proof, index, value);
     }
