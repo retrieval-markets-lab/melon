@@ -1,10 +1,3 @@
-<style>
-r { color: Red }
-o { color: Pink }
-or { color: Orange }
-g { color: Green }
-</style>
-
 <h1 align="center">
 	<br>
 	  	🍉🍈
