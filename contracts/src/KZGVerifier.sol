@@ -155,15 +155,61 @@ contract Verifier is Constants {
      * @param p The field size. Defaults to the BabyJub field size.
      */
     //  TODO: finish implementing this
-    // function genProof(uint256[] memory _coefficients, uint256 _index)
-    //     public
-    //     view
-    //     returns (Pairing.G1Point memory)
-    // {
-    //     // first we generate the quotient polynomial
-    //     uint256 m = Constants.BABYJUB_P;
-    //     uint256 yval = evalPolyAt(_coefficients, _index);
-    //    ...
-    //     return commit(quotient);
-    // }
+    function proofPoly(uint256[] memory _coefficients, uint256 _index)
+        public
+        pure
+        returns (uint256[] memory)
+    {
+        // first we generate the quotient polynomial
+        uint256 m = Constants.BABYJUB_P;
+        uint256 yval = evalPolyAt(_coefficients, _index);
+        uint256[] memory polya = _coefficients;
+        polya[0] = submod(polya[0], yval, m);
+        uint256 polyb = submod(0, _index, m);
+
+        uint256 apos = lastNonZeroIndex(polya);
+        // bpos =  lastNonZeroIndex(polyb) which will always be 1 in this case
+        // as such diff = (apos - bpos) is just (apos - 1)
+        require(apos >= 1, "Cannot divide by polynomial of higher order");
+        uint256[] memory divpoly = new uint256[](apos);
+        // adapted from https://github.com/GuildOfWeavers/galois/blob/f3d9cfbf2fe7857f3840bdba3406e2ba9ea548c7/lib/PrimeField.ts#L660
+        for (uint256 i = apos; i > 0; i--) {
+            divpoly[i - 1] = polya[i];
+            // simplify quot = div(polya[apos], polyb[bpos]) to polya[apos], as polyb[pos] is always 1
+            polya[i - 1] = submod(polya[i - 1], mulmod(polyb, polya[i], m), m);
+        }
+        return divpoly;
+    }
+
+    /* @dev Modular subtraction of two numbers (mod p).
+     * @param _a first number
+     * @param _b second number
+     * @param _pp The modulus
+     * @return q such (_a-_b)(mod _pp)
+     */
+    function submod(
+        uint256 _a,
+        uint256 _b,
+        uint256 _pp
+    ) public pure returns (uint256) {
+        uint256 a = _a % _pp;
+        uint256 b = _b % _pp;
+        if (a >= b) {
+            return (a - b) % _pp;
+        } else {
+            return _pp - ((b - a) % _pp);
+        }
+    }
+
+    function lastNonZeroIndex(uint256[] memory values)
+        internal
+        pure
+        returns (uint256)
+    {
+        for (uint256 i = values.length - 1; i >= 0; i--) {
+            if (values[i] != 0) return i;
+        }
+        // works solely for this particular use-case ! do not attempt to utilize in other contexts
+        return 0;
+    }
 }
