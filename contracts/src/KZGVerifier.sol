@@ -157,7 +157,7 @@ contract Verifier is Constants {
     //  TODO: finish implementing this
     function proofPoly(uint256[] memory _coefficients, uint256 _index)
         public
-        view
+        pure
         returns (uint256[] memory)
     {
         // first we generate the quotient polynomial
@@ -209,5 +209,7 @@ contract Verifier is Constants {
         for (uint256 i = values.length - 1; i >= 0; i--) {
             if (values[i] != 0) return i;
         }
+        // works solely for this particular use-case ! do not attempt to utilize in other contexts
+        return 0;
     }
 }
