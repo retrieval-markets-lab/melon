@@ -1,11 +1,10 @@
+use super::ft::EvaluationDomain;
 use blstrs::Scalar;
 use pairing::group::ff::Field;
 use std::borrow::Borrow;
 use std::cmp::{Eq, PartialEq};
 use std::iter::Iterator;
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
-
-use super::ft::EvaluationDomain;
+use std::ops::{Add, AddAssign, Mul, Sub};
 
 const FFT_MUL_THRESHOLD: usize = 128;
 
@@ -221,37 +220,6 @@ impl Polynomial {
         tree.eval(xs.as_ref(), self)
     }
 
-    /// Performs lagrange interpolation on a pre-computed sub-product tree of xs.
-    /// `tree` must be the same as the result when calling SubProductTree::new_from_points(xs)
-    pub fn lagrange_interpolation_with_tree(
-        xs: &[Scalar],
-        ys: &[Scalar],
-        tree: &SubProductTree,
-    ) -> Polynomial {
-        assert_eq!(xs.len(), ys.len());
-
-        if xs.len() == 1 {
-            let coeffs = vec![ys[0] - xs[0], Scalar::one()];
-            return Polynomial::new_from_coeffs(coeffs, 1);
-        }
-
-        let mut m_prime = tree.product.clone();
-        for i in 1..m_prime.num_coeffs() {
-            m_prime.coeffs[i] *= Scalar::from(i as u64);
-        }
-        m_prime.coeffs.remove(0);
-        m_prime.degree -= 1;
-
-        let cs: Vec<Scalar> = m_prime
-            .multi_eval(xs)
-            .iter()
-            .enumerate()
-            .map(|(i, c)| ys[i] * c.invert().unwrap())
-            .collect();
-
-        tree.linear_mod_combination(cs.as_slice())
-    }
-
     pub fn lagrange_interpolation(xs: &[Scalar], ys: &[Scalar]) -> Polynomial {
         assert_eq!(xs.len(), ys.len());
 
@@ -260,8 +228,6 @@ impl Polynomial {
             return Polynomial::new_from_coeffs(coeffs, 1);
         }
 
-        // let xs = pad_to_power_of_two(xs);
-        // let ys = pad_to_power_of_two(ys);
         let tree = SubProductTree::new_from_points(xs);
 
         let mut m_prime = tree.product.clone();
@@ -353,51 +319,6 @@ impl SubProductTree {
     }
 }
 
-fn op_tree_inner<T, F, O>(left: usize, size: usize, get_elem: &F, op: &O) -> T
-where
-    F: Fn(usize) -> T,
-    O: Fn(T, T) -> T,
-{
-    assert!(size > 0);
-    if size == 1 {
-        get_elem(left)
-    } else if size == 2 {
-        op(get_elem(left), get_elem(left + 1))
-    } else {
-        let mid = left + (size / 2);
-        op(
-            op_tree_inner(left, size / 2, get_elem, op),
-            op_tree_inner(mid, size - (size / 2), get_elem, op),
-        )
-    }
-}
-
-pub fn op_tree<T, F, O>(size: usize, get_elem: &F, op: &O) -> T
-where
-    F: Fn(usize) -> T,
-    O: Fn(T, T) -> T,
-{
-    op_tree_inner(0, size, get_elem, op)
-}
-
-impl<'a> Add for &'a Polynomial {
-    type Output = Polynomial;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        let (mut res, shorter) = if rhs.degree() > self.degree {
-            (rhs.clone(), self)
-        } else {
-            (self.clone(), rhs)
-        };
-
-        for i in 0..shorter.degree() {
-            res.coeffs[i] += shorter.coeffs[i];
-        }
-
-        res
-    }
-}
-
 impl Add for Polynomial {
     type Output = Polynomial;
 
@@ -445,17 +366,6 @@ impl<'a> Sub for &'a Polynomial {
 
         res.shrink_degree();
         res
-    }
-}
-
-impl<R: Borrow<Polynomial>> SubAssign<R> for Polynomial {
-    fn sub_assign(&mut self, rhs: R) {
-        let rhs = rhs.borrow();
-        for i in 0..rhs.num_coeffs() {
-            self.coeffs[i] -= rhs.coeffs[i];
-        }
-
-        self.fixup_degree()
     }
 }
 

@@ -1,4 +1,4 @@
-// Note: a lot of this file is copypasta from zkcrypto/bellman
+// copypasta from zkcrypto/bellman
 
 use std::ops::{AddAssign, MulAssign, SubAssign};
 
@@ -38,14 +38,6 @@ impl AsMut<[Scalar]> for EvaluationDomain {
 }
 
 impl EvaluationDomain {
-    pub fn into_coeffs(self) -> Vec<Scalar> {
-        self.coeffs
-    }
-
-    pub fn len(&self) -> usize {
-        self.coeffs.len()
-    }
-
     // returns m, exp, and omega
     pub fn compute_omega(d: usize) -> Result<(usize, u32, Scalar), KZGError> {
         // Compute the size of our evaluation domain
@@ -65,13 +57,9 @@ impl EvaluationDomain {
         }
 
         // Compute omega, the 2^exp primitive root of unity
-        let omega = Scalar::root_of_unity().pow_vartime(&[1 << (Scalar::S - exp)]);
+        let omega = Scalar::root_of_unity().pow_vartime([1 << (Scalar::S - exp)]);
 
         Ok((m, exp, omega))
-    }
-
-    pub fn clone_with_different_coeffs(&self, coeffs: Vec<Scalar>) -> EvaluationDomain {
-        EvaluationDomain { coeffs, ..*self }
     }
 
     pub fn new(coeffs: Vec<Scalar>, d: usize, exp: u32, omega: Scalar) -> Self {
@@ -117,68 +105,12 @@ impl EvaluationDomain {
         }
     }
 
-    pub fn distribute_powers(&mut self, g: Scalar) {
-        {
-            for (i, v) in self.coeffs.iter_mut().enumerate() {
-                let mut u = g.pow_vartime(&[i as u64]);
-                v.mul_assign(&u);
-                u.mul_assign(&g);
-            }
-        };
-    }
-
-    pub fn coset_fft(&mut self) {
-        self.distribute_powers(Scalar::multiplicative_generator());
-        self.fft();
-    }
-
-    pub fn icoset_fft(&mut self) {
-        let geninv = self.geninv;
-
-        self.ifft();
-        self.distribute_powers(geninv);
-    }
-
-    /// This evaluates t(tau) for this domain, which is
-    /// tau^m - 1 for these radix-2 domains.
-    pub fn z(&self, tau: &Scalar) -> Scalar {
-        let mut tmp = tau.pow_vartime(&[self.coeffs.len() as u64]);
-        tmp.sub_assign(&Scalar::one());
-
-        tmp
-    }
-
-    /// The target polynomial is the zero polynomial in our
-    /// evaluation domain, so we must perform division over
-    /// a coset.
-    pub fn divide_by_z_on_coset(&mut self) {
-        let i = self
-            .z(&Scalar::multiplicative_generator())
-            .invert()
-            .unwrap();
-
-        {
-            for v in self.coeffs.iter_mut() {
-                v.mul_assign(&i);
-            }
-        }
-    }
-
     /// Perform O(n) multiplication of two polynomials in the domain.
     pub fn mul_assign(&mut self, other: &EvaluationDomain) {
         assert_eq!(self.coeffs.len(), other.coeffs.len());
 
         for (a, b) in self.coeffs.iter_mut().zip(other.coeffs.iter()) {
             a.mul_assign(b);
-        }
-    }
-
-    /// Perform O(n) subtraction of one polynomial from another in the domain.
-    pub fn sub_assign(&mut self, other: &EvaluationDomain) {
-        assert_eq!(self.coeffs.len(), other.coeffs.len());
-
-        for (a, b) in self.coeffs.iter_mut().zip(other.coeffs.iter()) {
-            a.sub_assign(b);
         }
     }
 }
@@ -210,7 +142,7 @@ fn serial_fft(a: &mut [Scalar], omega: &Scalar, log_n: u32) {
 
     let mut m = 1;
     for _ in 0..log_n {
-        let w_m = omega.pow_vartime(&[u64::from(n / (2 * m))]);
+        let w_m = omega.pow_vartime([u64::from(n / (2 * m))]);
 
         let mut k = 0;
         while k < n {
@@ -240,10 +172,10 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 #[test]
 fn polynomial_arith() {
     fn test_mul<R: Rng>(mut rng: &mut R) {
-        for coeffs_a in vec![1, 5, 10, 50] {
-            for coeffs_b in vec![1, 5, 10, 50] {
-                let a: Vec<_> = (0..coeffs_a).map(|_| Scalar::random(&mut rng)).collect();
-                let b: Vec<_> = (0..coeffs_b).map(|_| Scalar::random(&mut rng)).collect();
+        for coeffs_a in &[1, 5, 10, 50] {
+            for coeffs_b in &[1, 5, 10, 50] {
+                let a: Vec<_> = (0..*coeffs_a).map(|_| Scalar::random(&mut rng)).collect();
+                let b: Vec<_> = (0..*coeffs_b).map(|_| Scalar::random(&mut rng)).collect();
 
                 let a = Polynomial::new_from_coeffs(a, coeffs_a - 1);
                 let b = Polynomial::new_from_coeffs(b, coeffs_b - 1);
@@ -281,12 +213,6 @@ fn fft_composition() {
             assert!(v == domain.coeffs);
             domain.fft();
             domain.ifft();
-            assert!(v == domain.coeffs);
-            domain.icoset_fft();
-            domain.coset_fft();
-            assert!(v == domain.coeffs);
-            domain.coset_fft();
-            domain.icoset_fft();
             assert!(v == domain.coeffs);
         }
     }

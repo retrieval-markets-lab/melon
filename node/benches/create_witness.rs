@@ -1,6 +1,6 @@
 use blstrs::Scalar;
 use melon::kzg::polynomial::Polynomial;
-use melon::kzg::{coeff_form::KZGProver, setup, KZGParams};
+use melon::kzg::{setup, KZGParams, KZGProver};
 use pairing::group::ff::Field;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
@@ -15,8 +15,8 @@ fn bench_create_witness<const NUM_COEFFS: usize>(c: &mut Criterion) {
     let params = csprng_setup::<NUM_COEFFS>();
     let mut rng = SmallRng::from_seed([42; 32]);
     let mut coeffs = vec![Scalar::zero(); NUM_COEFFS];
-    for i in 0..NUM_COEFFS {
-        coeffs[i] = rng.gen::<u64>().into();
+    for coeff in coeffs.iter_mut().take(NUM_COEFFS) {
+        *coeff = rng.gen::<u64>().into();
     }
     let polynomial = Polynomial::new_from_coeffs(coeffs, NUM_COEFFS - 1);
     let prover = KZGProver::new(&params);
@@ -26,7 +26,7 @@ fn bench_create_witness<const NUM_COEFFS: usize>(c: &mut Criterion) {
     let y = polynomial.eval(x);
 
     c.bench_function(
-        format!("bench_create_witness_coeff_form, degree {}", NUM_COEFFS - 1).as_str(),
+        format!("create_witness, degree {}", NUM_COEFFS - 1).as_str(),
         |b| {
             b.iter(|| {
                 black_box(&prover)
@@ -48,6 +48,6 @@ fn bench_create_witness<const NUM_COEFFS: usize>(c: &mut Criterion) {
 criterion_group!(
     name = create_witness;
     config = Criterion::default();
-    targets = bench_create_witness<16>, bench_create_witness<64>, bench_create_witness<128>, bench_create_witness<256>, bench_create_witness<512>, bench_create_witness<1024>, bench_create_witness<2048>
+    targets = bench_create_witness<16>, bench_create_witness<64>, bench_create_witness<128>, bench_create_witness<256>, bench_create_witness<512>, bench_create_witness<1024>, bench_create_witness<2048>, bench_create_witness<5096>
 );
 criterion_main!(create_witness);

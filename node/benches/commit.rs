@@ -1,6 +1,6 @@
 use blstrs::Scalar;
 use melon::kzg::polynomial::Polynomial;
-use melon::kzg::{coeff_form::KZGProver, setup, KZGParams};
+use melon::kzg::{setup, KZGParams, KZGProver};
 use pairing::group::ff::Field;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
@@ -21,15 +21,14 @@ fn bench_commit<const NUM_COEFFS: usize>(c: &mut Criterion) {
     let polynomial = Polynomial::new(coeffs);
     let prover = KZGProver::new(&params);
 
-    c.bench_function(
-        format!("bench_commit_coeff_form, degree {}", NUM_COEFFS - 1).as_str(),
-        |b| b.iter(|| black_box(&prover).commit(black_box(&polynomial))),
-    );
+    c.bench_function(format!("commit, degree {}", NUM_COEFFS - 1).as_str(), |b| {
+        b.iter(|| black_box(&prover).commit(black_box(&polynomial)))
+    });
 }
 
 criterion_group!(
     name = commit;
     config = Criterion::default();
-    targets = bench_commit<16>, bench_commit<64>, bench_commit<128>, bench_commit<256>, bench_commit<512>, bench_commit<1024>, bench_commit<2048>
+    targets = bench_commit<16>, bench_commit<64>, bench_commit<128>, bench_commit<256>, bench_commit<512>, bench_commit<1024>, bench_commit<2048>,  bench_commit<5096>
 );
 criterion_main!(commit);
