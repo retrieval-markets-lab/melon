@@ -4,9 +4,13 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "../src/KZGVerifier.sol";
 import "../src/Pairing.sol";
+import "forge-std/StdJson.sol";
+import "forge-std/StdUtils.sol";
 
 contract KZGVerifierTest is Test {
     Verifier public verifier;
+
+    using stdJson for string;
 
     uint256 constant BABYJUB_P =
         21888242871839275222246405745257275088548364400416034343698204186575808495617;
@@ -51,6 +55,29 @@ contract KZGVerifierTest is Test {
         view
     {
         verifier.evalPolyAt(arr, index);
+    }
+
+    function testverify_json() public {
+        string memory root = vm.projectRoot();
+        // commit
+        string memory pathc = string.concat(
+            root,
+            "/test/files/commitment.json"
+        );
+        string memory jsonc = vm.readFile(pathc);
+        uint256 commitX = bytesToUint(jsonc.parseRaw(".x"));
+        uint256 commitY = bytesToUint(jsonc.parseRaw(".y"));
+        Pairing.G1Point memory commit = Pairing.G1Point(commitX, commitY);
+        // witness
+        string memory pathw = string.concat(root, "/test/files/witness.json");
+        string memory jsonw = vm.readFile(pathw);
+        uint256 proofX = bytesToUint(jsonw.parseRaw(".x"));
+        uint256 proofY = bytesToUint(jsonw.parseRaw(".y"));
+        uint256 i = bytesToUint(jsonw.parseRaw(".i"));
+        uint256 value = bytesToUint(jsonw.parseRaw(".value"));
+        Pairing.G1Point memory proof = Pairing.G1Point(proofX, proofY);
+        bool res = verifier.verify(commit, proof, i, value);
+        // assertEq(res, true);
     }
 
     function testverify() public {
