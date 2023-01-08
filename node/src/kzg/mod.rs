@@ -2,7 +2,6 @@ use blstrs::{pairing, G1Affine, G1Projective, G2Projective, Scalar};
 use pairing::group::Group;
 use thiserror::Error;
 
-pub mod ft;
 pub mod polynomial;
 
 use polynomial::Polynomial;
@@ -24,9 +23,7 @@ pub struct KZGParams {
     pub hs: Vec<G2Projective>,
 }
 
-/// the commitment - "C" in the paper. It's a single group element
 pub type KZGCommitment = G1Affine;
-/// A witness for a single element - "w_i" in the paper. It's a group element.
 pub type KZGWitness = G1Affine;
 
 #[derive(Error, Debug)]
@@ -88,20 +85,22 @@ impl<'params> KZGProver<'params> {
         (x, y): (Scalar, Scalar),
     ) -> Result<KZGWitness, KZGError> {
         let mut dividend = polynomial.clone();
+        let degree = dividend.degree();
         dividend.coeffs[0] -= y;
 
-        let divisor = Polynomial::new_from_coeffs(vec![-x, Scalar::one()], 1);
-        match dividend.long_division(&divisor) {
-            // by polynomial remainder theorem, if (x - point.x) does not divide self.polynomial, then
-            // self.polynomial(point.y) != point.1
-            (_, Some(_)) => Err(KZGError::PointNotOnPolynomial),
-            (psi, None) if psi.num_coeffs() == 1 => {
-                Ok((self.parameters.gs[0] * psi.coeffs[0]).to_affine())
-            }
-            (psi, None) => {
-                let gs = &self.parameters.gs[..psi.num_coeffs()];
-                Ok(G1Projective::multi_exp(gs, psi.slice_coeffs()).to_affine())
-            }
+        let mut remainder = polynomial.clone();
+        let mut divpoly = Polynomial::new_from_coeffs(vec![Scalar::zero(); degree], degree - 1);
+
+        for i in (1..=degree).rev() {
+            let factor = remainder.coeffs[i];
+            divpoly.coeffs[i - 1] = factor;
+            remainder.coeffs[i - 1] = remainder.coeffs[i - 1] + x * factor;
+        }
+
+        if divpoly.num_coeffs() == 1 {
+            Ok((self.parameters.gs[0] * divpoly.coeffs[0]).to_affine())
+        } else {
+            Ok(self.commit(&divpoly))
         }
     }
 }
@@ -141,6 +140,7 @@ impl<'params> KZGVerifier<'params> {
 mod tests {
     use super::*;
     use crate::kzg::setup;
+    use pairing::group::ff::Field;
     use rand::{rngs::SmallRng, Rng, SeedableRng};
 
     const RNG_SEED: [u8; 32] = [69; 32];

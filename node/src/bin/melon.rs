@@ -4,7 +4,6 @@ use melon::kzg::{setup, KZGParams, KZGProver};
 use pairing::group::ff::Field;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
 use std::fs::File;
 
 #[derive(Serialize, Deserialize)]
