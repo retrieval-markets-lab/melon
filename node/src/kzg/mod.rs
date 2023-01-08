@@ -94,7 +94,7 @@ impl<'params> KZGProver<'params> {
         for i in (1..=degree).rev() {
             let factor = remainder.coeffs[i];
             divpoly.coeffs[i - 1] = factor;
-            remainder.coeffs[i - 1] = remainder.coeffs[i - 1] + x * factor;
+            remainder.coeffs[i - 1] += x * factor;
         }
 
         if divpoly.num_coeffs() == 1 {
