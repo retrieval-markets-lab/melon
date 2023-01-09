@@ -1,5 +1,5 @@
-use blstrs::Scalar;
-use pairing::group::ff::Field;
+use ark_bn254::Fr as Scalar;
+use ark_ff::{Field, One, Zero};
 use std::cmp::{Eq, PartialEq};
 use std::iter::Iterator;
 use std::ops::{Add, Mul, MulAssign, Sub};
@@ -136,7 +136,7 @@ impl Polynomial {
         for (x, y) in xs[1..].iter().zip(ys[1..].iter()) {
             // Scale `base` so that its value at `x` is the difference between `y` and `poly`'s
             // current value at `x`: Adding it to `poly` will then make it correct for `x`.
-            let diff = (*y - poly.eval(*x)) * base.eval(*x).invert().unwrap();
+            let diff = (*y - poly.eval(*x)) * base.eval(*x).inverse().unwrap();
             base = base * &diff;
             poly = poly + base.clone();
 
@@ -169,7 +169,7 @@ impl<'a> Mul<&'a Scalar> for Polynomial {
     type Output = Polynomial;
 
     fn mul(mut self, rhs: &Scalar) -> Self::Output {
-        if rhs.is_zero().unwrap_u8() == 1 {
+        if rhs.is_zero() {
             return Polynomial::new_zero();
         } else {
             self.coeffs.iter_mut().for_each(|c| c.mul_assign(rhs));
@@ -216,7 +216,6 @@ impl Mul<Polynomial> for Polynomial {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use blstrs::Scalar;
 
     #[test]
     fn test_eval_basic() {

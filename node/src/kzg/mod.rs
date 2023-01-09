@@ -1,12 +1,16 @@
-use blstrs::{pairing, G1Affine, G1Projective, G2Projective, Scalar};
-use pairing::group::Group;
+use ark_bn254::{
+    g1::{G1_GENERATOR_X, G1_GENERATOR_Y},
+    g2::{G2_GENERATOR_X, G2_GENERATOR_Y},
+    Bn254, Fr as Scalar, G1Affine, G1Projective, G2Affine, G2Projective,
+};
+use ark_ec::{msm::VariableBaseMSM, PairingEngine, ProjectiveCurve};
+use ark_ff::{BigInteger256, PrimeField, Zero};
 use thiserror::Error;
 
 pub mod polynomial;
 
 use polynomial::Polynomial;
 
-use pairing::group::{ff::Field, prime::PrimeCurveAffine, Curve};
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
@@ -39,18 +43,21 @@ pub enum KZGError {
 }
 
 pub fn setup(s: Scalar, num_coeffs: usize) -> KZGParams {
-    let mut gs = vec![G1Projective::generator(); num_coeffs];
-    let mut hs = vec![G2Projective::generator(); num_coeffs];
+    let generator_g1: G1Affine = G1Affine::new(G1_GENERATOR_X, G1_GENERATOR_Y, false);
+    let generator_g2: G2Affine = G2Affine::new(G2_GENERATOR_X, G2_GENERATOR_Y, false);
 
-    let mut curr = gs[0];
+    let mut gs = vec![generator_g1.into(); num_coeffs];
+    let mut hs = vec![generator_g2.into(); num_coeffs];
+
+    let mut curr: G1Projective = gs[0];
     for g in gs.iter_mut().skip(1) {
-        *g = curr * s;
+        *g = curr.mul(&s.into_repr());
         curr = *g;
     }
 
-    let mut curr = hs[0];
+    let mut curr: G2Projective = hs[0];
     for h in hs.iter_mut().skip(1) {
-        *h = curr * s;
+        *h = curr.mul(&s.into_repr());
         curr = *h;
     }
 
@@ -73,10 +80,18 @@ impl<'params> KZGProver<'params> {
     }
 
     pub fn commit(&self, polynomial: &Polynomial) -> KZGCommitment {
-        let gs = &self.parameters.gs[..polynomial.num_coeffs()];
-        let commitment = G1Projective::multi_exp(gs, polynomial.slice_coeffs());
+        let gs = &self.parameters.gs[..polynomial.num_coeffs()]
+            .iter()
+            .map(|e| G1Affine::from(*e))
+            .collect::<Vec<G1Affine>>();
+        let coeffs = &polynomial
+            .slice_coeffs()
+            .iter()
+            .map(|c| c.into_repr())
+            .collect::<Vec<BigInteger256>>();
+        let commitment = VariableBaseMSM::multi_scalar_mul(gs, &coeffs);
 
-        commitment.to_affine()
+        commitment.into()
     }
 
     pub fn create_witness(
@@ -98,7 +113,7 @@ impl<'params> KZGProver<'params> {
         }
 
         if divpoly.num_coeffs() == 1 {
-            Ok((self.parameters.gs[0] * divpoly.coeffs[0]).to_affine())
+            Ok((self.parameters.gs[0].mul(&divpoly.coeffs[0].into_repr())).into())
         } else {
             Ok(self.commit(&divpoly))
         }
@@ -111,10 +126,18 @@ impl<'params> KZGVerifier<'params> {
     }
 
     pub fn verify_poly(&self, commitment: &KZGCommitment, polynomial: &Polynomial) -> bool {
-        let gs = &self.parameters.gs[..polynomial.num_coeffs()];
-        let check = G1Projective::multi_exp(gs, polynomial.slice_coeffs());
+        let gs = &self.parameters.gs[..polynomial.num_coeffs()]
+            .iter()
+            .map(|e| G1Affine::from(*e))
+            .collect::<Vec<G1Affine>>();
+        let coeffs = &polynomial
+            .slice_coeffs()
+            .iter()
+            .map(|c| c.into_repr())
+            .collect::<Vec<BigInteger256>>();
+        let check = VariableBaseMSM::multi_scalar_mul(gs, &coeffs);
 
-        check.to_affine() == *commitment
+        G1Affine::from(check) == *commitment
     }
 
     pub fn verify_eval(
@@ -123,13 +146,14 @@ impl<'params> KZGVerifier<'params> {
         commitment: &KZGCommitment,
         witness: &KZGWitness,
     ) -> bool {
-        let lhs = pairing(
-            witness,
-            &(self.parameters.hs[1] - self.parameters.hs[0] * x).to_affine(),
+        let lhs = Bn254::pairing::<G1Affine, G2Affine>(
+            *witness,
+            (self.parameters.hs[1] - self.parameters.hs[0].mul(&x.into_repr())).into(),
         );
-        let rhs = pairing(
-            &(commitment.to_curve() - self.parameters.gs[0] * y).to_affine(),
-            &self.parameters.hs[0].to_affine(),
+        let rhs = Bn254::pairing::<G1Affine, G2Affine>(
+            (Into::<G1Projective>::into(*commitment) - self.parameters.gs[0].mul(&y.into_repr()))
+                .into(),
+            self.parameters.hs[0].into(),
         );
 
         lhs == rhs
@@ -140,7 +164,6 @@ impl<'params> KZGVerifier<'params> {
 mod tests {
     use super::*;
     use crate::kzg::setup;
-    use pairing::group::ff::Field;
     use rand::{rngs::SmallRng, Rng, SeedableRng};
 
     const RNG_SEED: [u8; 32] = [69; 32];
