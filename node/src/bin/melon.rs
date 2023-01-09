@@ -1,5 +1,5 @@
 use ark_bn254::{Fr as Scalar, G1Affine};
-use ark_ff::{BigInteger256, PrimeField, Zero};
+use ark_ff::{BigInteger, PrimeField, Zero};
 use melon::kzg::polynomial::Polynomial;
 use melon::kzg::{setup, KZGParams, KZGProver};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
