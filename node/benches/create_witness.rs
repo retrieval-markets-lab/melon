@@ -35,14 +35,6 @@ fn bench_create_witness<const NUM_COEFFS: usize>(c: &mut Criterion) {
             })
         },
     );
-
-    let mut xs = Vec::with_capacity(NUM_COEFFS - 1);
-    let mut ys = Vec::with_capacity(NUM_COEFFS - 1);
-    for _ in 0..NUM_COEFFS - 1 {
-        let x = Scalar::random(&mut rng);
-        xs.push(x);
-        ys.push(polynomial.eval(x));
-    }
 }
 
 criterion_group!(

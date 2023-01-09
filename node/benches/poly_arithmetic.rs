@@ -29,20 +29,6 @@ fn poly_arithmetic<const NUM_COEFFS: usize>(c: &mut Criterion) {
         },
     );
 
-    c.bench_function(
-        format!("mul_fft, degree {}", NUM_COEFFS - 1).as_str(),
-        |b| {
-            b.iter(|| black_box(f.clone()).fft_mul(black_box(&g)));
-        },
-    );
-
-    let g = random_polynomial(&mut rng, 2);
-
-    c.bench_function(
-        format!("long_division, degree {}", NUM_COEFFS - 1).as_str(),
-        |b| b.iter(|| black_box(f.clone()).long_division(&black_box(g.clone()))),
-    );
-
     let mut xs = vec![Scalar::zero(); NUM_COEFFS - 1];
     let mut ys = vec![Scalar::zero(); NUM_COEFFS - 1];
     for i in 0..xs.len() {
