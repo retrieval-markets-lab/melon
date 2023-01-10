@@ -1,7 +1,7 @@
-use blstrs::Scalar;
+use ark_bn254::Fr as Scalar;
+use ark_ff::Zero;
 use melon::kzg::polynomial::Polynomial;
 use melon::kzg::{setup, KZGParams, KZGProver};
-use pairing::group::ff::Field;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};

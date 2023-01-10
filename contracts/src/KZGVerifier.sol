@@ -24,8 +24,10 @@ contract Verifier is Constants {
 
     Pairing.G2Point SRS_G2_1 =
         Pairing.G2Point({
-            X: [Constants.SRS_G2_X_0[1], Constants.SRS_G2_X_1[1]],
-            Y: [Constants.SRS_G2_Y_0[1], Constants.SRS_G2_Y_1[1]]
+            // if not using a dummy ceremony this should index by 1
+            X: [Constants.SRS_G2_X_0[0], Constants.SRS_G2_X_1[0]],
+            // if not using a dummy ceremony this should index by 1
+            Y: [Constants.SRS_G2_Y_0[0], Constants.SRS_G2_Y_1[0]]
         });
 
     /*
@@ -114,8 +116,10 @@ contract Verifier is Constants {
                 result,
                 Pairing.mulScalar(
                     Pairing.G1Point({
-                        X: Constants.SRS_G1_X[i],
-                        Y: Constants.SRS_G1_Y[i]
+                        // if not using a dummy ceremony this should index by i
+                        X: Constants.SRS_G1_X[0],
+                         // if not using a dummy ceremony this should index by i
+                        Y: Constants.SRS_G1_Y[0]
                     }),
                     coefficients[i]
                 )

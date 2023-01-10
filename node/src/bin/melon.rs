@@ -1,7 +1,7 @@
 use ark_bn254::{Fr as Scalar, G1Affine};
-use ark_ff::{BigInteger, PrimeField, Zero};
+use ark_ff::{One, PrimeField, Zero};
 use melon::kzg::polynomial::Polynomial;
-use melon::kzg::{setup, KZGParams, KZGProver};
+use melon::kzg::{setup, KZGCommitment, KZGParams, KZGProver, KZGVerifier};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -17,8 +17,8 @@ struct JSONG1Affine {
 impl From<G1Affine> for JSONG1Affine {
     fn from(point: G1Affine) -> Self {
         JSONG1Affine {
-            x: format!("0x{}", hex::encode(point.x.into_repr().to_bytes_be())),
-            y: format!("0x{}", hex::encode(point.y.into_repr().to_bytes_be())),
+            x: format!("0x{}", point.x.into_repr()),
+            y: format!("0x{}", point.y.into_repr()),
             i: "0x".to_string(),
             value: "0x".to_string(),
         }
@@ -26,11 +26,11 @@ impl From<G1Affine> for JSONG1Affine {
 }
 
 pub fn csprng_setup<const MAX_COEFFS: usize>() -> KZGParams {
-    let s: Scalar = rand::random::<u64>().into();
+    let s: Scalar = Scalar::one();
     setup(s, MAX_COEFFS)
 }
 
-fn create_commit<const NUM_COEFFS: usize>() -> (Polynomial, KZGParams) {
+fn create_commit<const NUM_COEFFS: usize>() -> (Polynomial, KZGCommitment, KZGParams) {
     let params = csprng_setup::<NUM_COEFFS>();
     let mut rng = SmallRng::from_seed([42; 32]);
     let mut coeffs = vec![Scalar::zero(); NUM_COEFFS];
@@ -39,27 +39,37 @@ fn create_commit<const NUM_COEFFS: usize>() -> (Polynomial, KZGParams) {
     }
     let polynomial = Polynomial::new_from_coeffs(coeffs, NUM_COEFFS - 1);
     let prover = KZGProver::new(&params);
-    let commitment: JSONG1Affine = prover.commit(&polynomial).into();
+    let commitment = prover.commit(&polynomial);
 
-    serde_json::to_writer(&File::create("commitment.json").unwrap(), &commitment).unwrap();
+    let commitment_json: JSONG1Affine = commitment.into();
 
-    (polynomial, params)
+    serde_json::to_writer(&File::create("commitment.json").unwrap(), &commitment_json).unwrap();
+
+    (polynomial, commitment, params)
 }
 
-fn create_witness<const NUM_COEFFS: usize>(polynomial: Polynomial, params: KZGParams) {
+fn create_witness<const NUM_COEFFS: usize>(
+    polynomial: Polynomial,
+    commitment: KZGCommitment,
+    params: KZGParams,
+) {
     let prover = KZGProver::new(&params);
     let mut rng = SmallRng::from_seed([42; 32]);
     let x: Scalar = rng.gen::<u64>().into();
     let y = polynomial.eval(x);
 
-    let mut wit: JSONG1Affine = prover.create_witness(&polynomial, (x, y)).unwrap().into();
-    wit.i = format!("0x{}", hex::encode(x.into_repr().to_bytes_be()));
-    wit.value = format!("0x{}", hex::encode(y.into_repr().to_bytes_be()));
+    let wit = prover.create_witness(&polynomial, (x, y)).unwrap();
+    let verifier = KZGVerifier::new(&params);
+    assert!(verifier.verify_eval((x, y), &commitment, &wit));
 
-    serde_json::to_writer(&File::create("witness.json").unwrap(), &wit).unwrap();
+    let mut wit_json: JSONG1Affine = wit.into();
+    wit_json.i = format!("0x{}", x.into_repr());
+    wit_json.value = format!("0x{}", y.into_repr());
+
+    serde_json::to_writer(&File::create("witness.json").unwrap(), &wit_json).unwrap();
 }
 
 fn main() {
-    let (poly, params) = create_commit::<8>();
-    create_witness::<8>(poly, params);
+    let (poly, commitment, params) = create_commit::<8>();
+    create_witness::<8>(poly, commitment, params);
 }

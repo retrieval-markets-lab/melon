@@ -1,7 +1,7 @@
-use blstrs::Scalar;
+use ark_bn254::Fr as Scalar;
+use ark_ff::{UniformRand, Zero};
 use melon::kzg::polynomial::Polynomial;
 use melon::kzg::{setup, KZGParams, KZGProver};
-use pairing::group::ff::Field;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -22,7 +22,7 @@ fn bench_create_witness<const NUM_COEFFS: usize>(c: &mut Criterion) {
     let prover = KZGProver::new(&params);
     let _commitment = prover.commit(&polynomial);
 
-    let x: Scalar = Scalar::random(&mut rng);
+    let x: Scalar = Scalar::rand(&mut rng);
     let y = polynomial.eval(x);
 
     c.bench_function(

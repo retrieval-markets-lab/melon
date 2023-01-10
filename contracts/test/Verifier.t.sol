@@ -77,7 +77,7 @@ contract KZGVerifierTest is Test {
         uint256 value = bytesToUint(jsonw.parseRaw(".value"));
         Pairing.G1Point memory proof = Pairing.G1Point(proofX, proofY);
         bool res = verifier.verify(commit, proof, i, value);
-        // assertEq(res, true);
+        assertEq(res, true);
     }
 
     function testverify() public {

@@ -1,6 +1,6 @@
-use blstrs::Scalar;
+use ark_bn254::Fr as Scalar;
+use ark_ff::{UniformRand, Zero};
 use melon::kzg::polynomial::Polynomial;
-use pairing::group::ff::Field;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -32,8 +32,8 @@ fn poly_arithmetic<const NUM_COEFFS: usize>(c: &mut Criterion) {
     let mut xs = vec![Scalar::zero(); NUM_COEFFS - 1];
     let mut ys = vec![Scalar::zero(); NUM_COEFFS - 1];
     for i in 0..xs.len() {
-        xs[i] = Scalar::random(&mut rng);
-        ys[i] = Scalar::random(&mut rng);
+        xs[i] = Scalar::rand(&mut rng);
+        ys[i] = Scalar::rand(&mut rng);
     }
 
     c.bench_function(
